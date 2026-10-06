@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Eurozone Debt vs. Yield</title>
+<meta name="description" content="18 eurozone and future-eurozone countries, 1995-2026: watch sovereign debt-to-GDP and bond yields converge, crack apart in the 2010-12 crisis, and converge again.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* layout: header (title + stat readout) / svg scatter (fixed domain, animates on year change) / transport (slider + play) / footer source note */
+:root{
+  color-scheme: light;
+  --bg:#f9f9f7;
+  --surface:#fcfcfb;
+  --ink:#0b0b0b;
+  --ink-2:#52514e;
+  --ink-muted:#898781;
+  --grid:#e1e0d9;
+  --baseline:#c3c2b7;
+  --accent:#2a78d6;
+  --accent-2:#eb6834;
+  --accent-soft:rgba(42,120,214,0.12);
+  --border:rgba(11,11,11,0.10);
+  --radius:12px;
+  --font-display:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --bg:#0d0d0d;
+    --surface:#1a1a19;
+    --ink:#ffffff;
+    --ink-2:#c3c2b7;
+    --ink-muted:#898781;
+    --grid:#2c2c2a;
+    --baseline:#383835;
+    --accent:#3987e5;
+    --accent-2:#d95926;
+    --accent-soft:rgba(57,135,229,0.16);
+    --border:rgba(255,255,255,0.10);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#0d0d0d;
+  --surface:#1a1a19;
+  --ink:#ffffff;
+  --ink-2:#c3c2b7;
+  --ink-muted:#898781;
+  --grid:#2c2c2a;
+  --baseline:#383835;
+  --accent:#3987e5;
+  --accent-2:#d95926;
+  --accent-soft:rgba(57,135,229,0.16);
+  --border:rgba(255,255,255,0.10);
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-display);}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 40px;}
+header h1{font-size:clamp(22px,4vw,30px);font-weight:700;margin:0 0 6px;letter-spacing:-0.01em;text-wrap:balance;}
+header p{margin:0;color:var(--ink-2);font-size:15px;line-height:1.5;max-width:62ch;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 18px 10px;margin-top:20px;}
+.statrow{display:flex;flex-wrap:wrap;gap:16px;align-items:baseline;justify-content:space-between;margin-bottom:6px;}
+.statrow .year{font-family:var(--font-mono);font-size:30px;font-weight:600;font-variant-numeric:tabular-nums;}
+.statrow .stats{font-family:var(--font-mono);font-size:13.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;text-align:right;}
+.statrow .stats b{color:var(--ink);font-weight:600;}
+svg{display:block;width:100%;height:auto;}
+.dot{fill:var(--accent);transition:cx .5s cubic-bezier(.3,.6,.3,1),cy .5s cubic-bezier(.3,.6,.3,1),opacity .3s;}
+.dot-ring{fill:var(--surface);transition:cx .5s cubic-bezier(.3,.6,.3,1),cy .5s cubic-bezier(.3,.6,.3,1),opacity .3s;}
+.dot:hover{fill:var(--accent-2);cursor:pointer;}
+.trend{stroke:var(--ink-muted);stroke-width:1.5;stroke-dasharray:5,5;transition:all .5s cubic-bezier(.3,.6,.3,1);}
+.trend-quad{stroke:var(--accent-2);stroke-width:2;fill:none;transition:d .5s cubic-bezier(.3,.6,.3,1),opacity .3s;}
+.pinned-label{font-family:var(--font-mono);font-size:11.5px;fill:var(--ink-2);transition:all .5s cubic-bezier(.3,.6,.3,1);}
+.axis-label{font-family:var(--font-display);font-size:12.5px;fill:var(--ink-2);}
+.tick{font-family:var(--font-mono);font-size:11px;fill:var(--ink-muted);}
+.transport{display:flex;align-items:center;gap:14px;padding:14px 2px 18px;}
+.playbtn{flex:0 0 auto;width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;}
+.playbtn:hover{background:var(--accent-soft);}
+input[type=range]{flex:1 1 auto;accent-color:var(--accent);}
+footer{margin-top:14px;color:var(--ink-muted);font-size:12.5px;line-height:1.5;}
+footer a{color:var(--accent);}
+#tooltip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);font-family:var(--font-mono);font-size:12.5px;padding:6px 9px;border-radius:7px;opacity:0;transition:opacity .12s;z-index:10;white-space:nowrap;}
+:root[data-theme="dark"] #tooltip, @media (prefers-color-scheme:dark){ #tooltip{} }
+.legend{display:flex;gap:18px;row-gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);margin-top:4px;}
+.legend span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
+.swatch{width:10px;height:10px;border-radius:50%;background:var(--accent);}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Eurozone Debt vs. Yield</h1>
+    <p>18 eurozone (and future-eurozone) countries, 1995&#8211;2026. Debt-to-GDP on the x-axis, long-term government bond yield on the y-axis. Drag the slider or press play to watch the eurozone converge, crack apart in 2010&#8211;12, and converge again.</p>
+  </header>
+
+  <div class="panel">
+    <div class="statrow">
+      <div class="year" id="yearLabel">1995</div>
+      <div class="stats" id="statLabel">&#8212;</div>
+    </div>
+    <svg id="chart" viewBox="0 0 920 580" role="img" aria-label="Scatter plot of government debt to GDP versus bond yield, animated by year"></svg>
+    <div class="legend">
+      <span><span class="swatch"></span>Each dot is one country</span>
+      <span><svg width="16" height="10" style="flex:none"><line x1="0" y1="5" x2="16" y2="5" stroke="var(--ink-muted)" stroke-width="1.5" stroke-dasharray="4,3"/></svg>linear fit</span>
+      <span><svg width="16" height="10" style="flex:none"><line x1="0" y1="5" x2="16" y2="5" stroke="var(--accent-2)" stroke-width="2"/></svg>quadratic fit</span>
+    </div>
+  </div>
+
+  <div class="transport">
+    <button class="playbtn" id="playBtn" aria-label="Play">&#9654;</button>
+    <input type="range" id="yearSlider" min="1995" max="2026" step="1" value="1995">
+  </div>
+
+  <footer>
+    Debt: IMF World Economic Outlook database, General government gross debt (% of GDP) &#8212; 2025&#8211;2026 are IMF estimates, not final actuals.
+    Yield: OECD Main Economic Indicators, Long-term interest rates (year-end or latest available month).
+    Cyprus and Malta excluded (not OECD members, no comparable yield series).
+  </footer>
+</div>
+
+<div id="tooltip"></div>
+
+<script id="eurodata" type="application/json">{"AUT":{"name":"Austria","series":{"1990":{"debt":56.2,"yield":8.69},"1991":{"debt":56.4,"yield":8.53},"1992":{"debt":56.3,"yield":7.54},"1993":{"debt":61,"yield":6.036},"1994":{"debt":64.1,"yield":7.63},"1995":{"debt":68.2,"yield":6.466},"1996":{"debt":68.2,"yield":5.857},"1997":{"debt":63.4,"yield":5.402},"1998":{"debt":69.2,"yield":4.054},"1999":{"debt":61.3,"yield":5.353},"2000":{"debt":66.1,"yield":5.212},"2001":{"debt":67.2,"yield":4.955},"2002":{"debt":67.4,"yield":4.428},"2003":{"debt":66.4,"yield":4.38},"2004":{"debt":65.9,"yield":3.634},"2005":{"debt":69.4,"yield":3.359},"2006":{"debt":68.2,"yield":3.812},"2007":{"debt":65.8,"yield":4.35},"2008":{"debt":69.5,"yield":3.896},"2009":{"debt":80.8,"yield":3.608},"2010":{"debt":83.7,"yield":3.432},"2011":{"debt":83.4,"yield":3.095},"2012":{"debt":82.9,"yield":1.767},"2013":{"debt":82.4,"yield":2.172},"2014":{"debt":85.2,"yield":0.813},"2015":{"debt":85.6,"yield":0.863},"2016":{"debt":83.4,"yield":0.534},"2017":{"debt":79.1,"yield":0.503},"2018":{"debt":74.6,"yield":0.52},"2019":{"debt":71,"yield":-0.044},"2020":{"debt":83.2,"yield":-0.422},"2021":{"debt":82.4,"yield":-0.045},"2022":{"debt":78.1,"yield":2.74},"2023":{"debt":77.8,"yield":2.68},"2024":{"debt":79.2,"yield":2.62},"2025":{"debt":80.5,"yield":3.097},"2026":{"debt":82.1,"yield":3.413}}},"BEL":{"name":"Belgium","series":{"1980":{"debt":76.8,"yield":12.35},"1981":{"debt":89.7,"yield":13.78},"1982":{"debt":99.6,"yield":12.54},"1983":{"debt":110.3,"yield":12.18},"1984":{"debt":114.6,"yield":11.84},"1985":{"debt":119.4,"yield":9.94},"1986":{"debt":124.7,"yield":8.27},"1987":{"debt":129.2,"yield":8.266},"1988":{"debt":129.7,"yield":8.14},"1989":{"debt":126.4,"yield":9.394},"1990":{"debt":130.3,"yield":9.95},"1991":{"debt":131.8,"yield":9.131},"1992":{"debt":134.7,"yield":7.939},"1993":{"debt":138.9,"yield":6.59},"1994":{"debt":137.1,"yield":8.302},"1995":{"debt":131.3,"yield":6.699},"1996":{"debt":129,"yield":5.901},"1997":{"debt":124.3,"yield":5.454},"1998":{"debt":119.2,"yield":4.086},"1999":{"debt":115.4,"yield":5.408},"2000":{"debt":109.6,"yield":5.276},"2001":{"debt":108.2,"yield":4.974},"2002":{"debt":105.4,"yield":4.456},"2003":{"debt":101.7,"yield":4.375},"2004":{"debt":97.2,"yield":3.659},"2005":{"debt":95.1,"yield":3.39},"2006":{"debt":91.5,"yield":3.82},"2007":{"debt":87.3,"yield":4.412},"2008":{"debt":93.2,"yield":3.866},"2009":{"debt":99.9,"yield":3.608},"2010":{"debt":100.2,"yield":3.989},"2011":{"debt":102.7,"yield":4.352},"2012":{"debt":104.3,"yield":2.104},"2013":{"debt":105,"yield":2.435},"2014":{"debt":106.6,"yield":0.905},"2015":{"debt":105.6,"yield":0.893},"2016":{"debt":105.5,"yield":0.615},"2017":{"debt":102.5,"yield":0.533},"2018":{"debt":100.1,"yield":0.745},"2019":{"debt":97.6,"yield":0.006},"2020":{"debt":111.2,"yield":-0.388},"2021":{"debt":108.5,"yield":0.03},"2022":{"debt":103.1,"yield":2.7},"2023":{"debt":102.2,"yield":2.7},"2024":{"debt":103.9,"yield":2.8},"2025":{"debt":106.3,"yield":3.32},"2026":{"debt":109.2,"yield":3.76}}},"HRV":{"name":"Croatia","series":{"2005":{"debt":40.9,"yield":4.42},"2006":{"debt":38.4,"yield":4.72},"2007":{"debt":37.1,"yield":5.44},"2008":{"debt":38.9,"yield":7.13},"2009":{"debt":47.9,"yield":6.22},"2010":{"debt":56.8,"yield":6.47},"2011":{"debt":63.1,"yield":7.67},"2012":{"debt":68.9,"yield":4.54},"2013":{"debt":79.5,"yield":5.1},"2014":{"debt":83.2,"yield":3.52},"2015":{"debt":82.8,"yield":3.92},"2016":{"debt":79.3,"yield":2.95},"2017":{"debt":76.2,"yield":2.47},"2018":{"debt":72.8,"yield":2.04},"2019":{"debt":70.9,"yield":0.59},"2020":{"debt":86.5,"yield":0.63},"2021":{"debt":78.2,"yield":0.38},"2022":{"debt":68.5,"yield":3.36},"2023":{"debt":60.9,"yield":3.39},"2024":{"debt":57.4,"yield":3.09},"2025":{"debt":55.9,"yield":3.14},"2026":{"debt":56.5,"yield":3.58}}},"EST":{"name":"Estonia","series":{"2020":{"debt":19.1,"yield":-0.18},"2021":{"debt":18.4,"yield":0.11},"2022":{"debt":19.2,"yield":3.46},"2023":{"debt":20.2,"yield":3.21},"2024":{"debt":23.5,"yield":3.43},"2025":{"debt":24.2,"yield":3.38},"2026":{"debt":27.8,"yield":3.83}}},"FIN":{"name":"Finland","series":{"1988":{"debt":16.5,"yield":11.55},"1989":{"debt":14.3,"yield":12.87},"1990":{"debt":13.9,"yield":13.54},"1991":{"debt":21.9,"yield":12.06},"1992":{"debt":39.3,"yield":10.99},"1993":{"debt":54.2,"yield":7.03},"1994":{"debt":56.2,"yield":10.21},"1995":{"debt":55.2,"yield":7.38},"1996":{"debt":55.4,"yield":6.34},"1997":{"debt":52.2,"yield":5.58},"1998":{"debt":46.8,"yield":4.06},"1999":{"debt":44,"yield":5.36},"2000":{"debt":42.4,"yield":5.14},"2001":{"debt":40.9,"yield":4.98},"2002":{"debt":40.1,"yield":4.45},"2003":{"debt":42.7,"yield":4.33},"2004":{"debt":42.6,"yield":3.68},"2005":{"debt":39.9,"yield":3.3},"2006":{"debt":38,"yield":3.82},"2007":{"debt":33.9,"yield":4.34},"2008":{"debt":32.6,"yield":3.72},"2009":{"debt":41.5,"yield":3.46},"2010":{"debt":50.1,"yield":3.19},"2011":{"debt":52,"yield":2.52},"2012":{"debt":57.9,"yield":1.59},"2013":{"debt":60.8,"yield":2.03},"2014":{"debt":64.8,"yield":0.89},"2015":{"debt":68.8,"yield":0.86},"2016":{"debt":68.6,"yield":0.46},"2017":{"debt":66.6,"yield":0.5},"2018":{"debt":65.3,"yield":0.55},"2019":{"debt":65.3,"yield":-0.03},"2020":{"debt":75.3,"yield":-0.41},"2021":{"debt":73.1,"yield":-0.062},"2022":{"debt":74,"yield":2.41},"2023":{"debt":77,"yield":2.68},"2024":{"debt":82.4,"yield":2.645},"2025":{"debt":89.3,"yield":3.164},"2026":{"debt":93.1,"yield":3.521}}},"FRA":{"name":"France","series":{"1980":{"debt":21.3,"yield":14.31},"1981":{"debt":22.6,"yield":16.44},"1982":{"debt":26.2,"yield":15.4},"1983":{"debt":27.7,"yield":13.96},"1984":{"debt":30.2,"yield":12.7},"1985":{"debt":31.9,"yield":11.33},"1986":{"debt":32.4,"yield":9.89},"1987":{"debt":34.8,"yield":9.98},"1988":{"debt":34.7,"yield":8.69},"1989":{"debt":35.5,"yield":9.12},"1990":{"debt":36.8,"yield":9.94},"1991":{"debt":37.8,"yield":8.8},"1992":{"debt":41.7,"yield":8.21},"1993":{"debt":48.2,"yield":5.8},"1994":{"debt":51.6,"yield":8.03},"1995":{"debt":57.8,"yield":6.71},"1996":{"debt":60.6,"yield":5.75},"1997":{"debt":62,"yield":5.32},"1998":{"debt":62.1,"yield":3.91},"1999":{"debt":61.4,"yield":5.29},"2000":{"debt":59.7,"yield":5.04},"2001":{"debt":59.3,"yield":4.87},"2002":{"debt":61.3,"yield":4.38},"2003":{"debt":65.4,"yield":4.34},"2004":{"debt":66.9,"yield":3.64},"2005":{"debt":68.2,"yield":3.38},"2006":{"debt":65.4,"yield":3.81},"2007":{"debt":65.5,"yield":4.35},"2008":{"debt":69.8,"yield":3.54},"2009":{"debt":84.1,"yield":3.48},"2010":{"debt":86.3,"yield":3.34},"2011":{"debt":88.7,"yield":3.16},"2012":{"debt":91.7,"yield":2.01},"2013":{"debt":94.6,"yield":2.33},"2014":{"debt":96.2,"yield":0.92},"2015":{"debt":97,"yield":0.93},"2016":{"debt":98.1,"yield":0.75},"2017":{"debt":98.8,"yield":0.67},"2018":{"debt":98.5,"yield":0.7},"2019":{"debt":98.2,"yield":0.04},"2020":{"debt":114.9,"yield":-0.34},"2021":{"debt":112.8,"yield":0.05},"2022":{"debt":111.4,"yield":2.62},"2023":{"debt":109.6,"yield":2.65},"2024":{"debt":113.2,"yield":3.01},"2025":{"debt":116,"yield":3.56},"2026":{"debt":118.4,"yield":4.0}}},"DEU":{"name":"Germany","series":{"1991":{"debt":39,"yield":8.213},"1992":{"debt":41.4,"yield":7.32},"1993":{"debt":45.1,"yield":5.83},"1994":{"debt":47.5,"yield":7.461},"1995":{"debt":54.9,"yield":6.075},"1996":{"debt":57.7,"yield":5.79},"1997":{"debt":58.8,"yield":5.327},"1998":{"debt":59.4,"yield":3.864},"1999":{"debt":60.3,"yield":5.148},"2000":{"debt":59.2,"yield":4.891},"2001":{"debt":58.1,"yield":4.736},"2002":{"debt":59.8,"yield":4.336},"2003":{"debt":63.3,"yield":4.291},"2004":{"debt":65,"yield":3.58},"2005":{"debt":67.1,"yield":3.338},"2006":{"debt":66.4,"yield":3.771},"2007":{"debt":63.7,"yield":4.206},"2008":{"debt":65.2,"yield":3.048},"2009":{"debt":72.4,"yield":3.139},"2010":{"debt":81,"yield":2.915},"2011":{"debt":78.5,"yield":1.928},"2012":{"debt":79.8,"yield":1.299},"2013":{"debt":77.5,"yield":1.798},"2014":{"debt":74.5,"yield":0.589},"2015":{"debt":71.2,"yield":0.545},"2016":{"debt":68.3,"yield":0.252},"2017":{"debt":64,"yield":0.297},"2018":{"debt":60.8,"yield":0.187},"2019":{"debt":58.7,"yield":-0.299},"2020":{"debt":68,"yield":-0.619},"2021":{"debt":67.9,"yield":-0.384},"2022":{"debt":64.4,"yield":2.085},"2023":{"debt":62.3,"yield":2.102},"2024":{"debt":62.2,"yield":2.179},"2025":{"debt":62.9,"yield":2.814},"2026":{"debt":64.6,"yield":3.18}}},"GRC":{"name":"Greece","series":{"1997":{"debt":102.6,"yield":10.48},"1998":{"debt":100.8,"yield":7.17},"1999":{"debt":102.8,"yield":6.08},"2000":{"debt":108.9,"yield":5.54},"2001":{"debt":110.5,"yield":5.13},"2002":{"debt":107.9,"yield":4.58},"2003":{"debt":104.3,"yield":4.45},"2004":{"debt":105.5,"yield":3.77},"2005":{"debt":109.9,"yield":3.57},"2006":{"debt":105.3,"yield":4.04},"2007":{"debt":104.6,"yield":4.53},"2008":{"debt":110.9,"yield":5.08},"2009":{"debt":128.5,"yield":5.49},"2010":{"debt":147.8,"yield":12.01},"2011":{"debt":175.1,"yield":21.14},"2012":{"debt":164.3,"yield":13.33},"2013":{"debt":180.5,"yield":8.66},"2014":{"debt":182.8,"yield":8.42},"2015":{"debt":180,"yield":8.21},"2016":{"debt":183.7,"yield":6.94},"2017":{"debt":182.6,"yield":4.44},"2018":{"debt":189.6,"yield":4.28},"2019":{"debt":183.7,"yield":1.42},"2020":{"debt":209.9,"yield":0.63},"2021":{"debt":197.8,"yield":1.29},"2022":{"debt":179.2,"yield":4.22},"2023":{"debt":165.5,"yield":3.28},"2024":{"debt":155.4,"yield":3.05},"2025":{"debt":145.7,"yield":3.44},"2026":{"debt":136.9,"yield":3.87}}},"IRL":{"name":"Ireland","series":{"1995":{"debt":78.5,"yield":7.375},"1996":{"debt":69.8,"yield":6.613},"1997":{"debt":61.6,"yield":5.606},"1998":{"debt":51.4,"yield":4.018},"1999":{"debt":46.6,"yield":5.403},"2000":{"debt":36.4,"yield":5.14},"2001":{"debt":33.6,"yield":4.93},"2002":{"debt":30.9,"yield":4.46},"2003":{"debt":29.8,"yield":4.36},"2004":{"debt":28.1,"yield":3.62},"2005":{"debt":26.1,"yield":3.36},"2006":{"debt":23.7,"yield":3.76},"2007":{"debt":23.9,"yield":4.45},"2008":{"debt":42.5,"yield":4.57},"2009":{"debt":61.8,"yield":4.88},"2010":{"debt":86.2,"yield":8.45},"2011":{"debt":109.6,"yield":8.7},"2012":{"debt":118.9,"yield":4.67},"2013":{"debt":117.7,"yield":3.48},"2014":{"debt":101.4,"yield":1.31},"2015":{"debt":74,"yield":1.11},"2016":{"debt":72.7,"yield":0.84},"2017":{"debt":65.2,"yield":0.54},"2018":{"debt":61.3,"yield":0.909},"2019":{"debt":55.8,"yield":0.037},"2020":{"debt":56.9,"yield":-0.29},"2021":{"debt":52.4,"yield":0.1},"2022":{"debt":42.9,"yield":2.586},"2023":{"debt":41.8,"yield":2.465},"2024":{"debt":38.3,"yield":2.491},"2025":{"debt":32.9,"yield":3.013},"2026":{"debt":31.6,"yield":3.35}}},"ITA":{"name":"Italy","series":{"1991":{"debt":105.3,"yield":12.952},"1992":{"debt":113,"yield":13.659},"1993":{"debt":124.1,"yield":8.933},"1994":{"debt":130.8,"yield":12.196},"1995":{"debt":119.1,"yield":11.171},"1996":{"debt":118.9,"yield":7.565},"1997":{"debt":116.5,"yield":5.738},"1998":{"debt":113.9,"yield":3.995},"1999":{"debt":113.1,"yield":5.36},"2000":{"debt":108.7,"yield":5.298},"2001":{"debt":108.5,"yield":5.047},"2002":{"debt":105.9,"yield":4.548},"2003":{"debt":105.1,"yield":4.459},"2004":{"debt":104.7,"yield":3.792},"2005":{"debt":106.2,"yield":3.553},"2006":{"debt":106.3,"yield":4.038},"2007":{"debt":103.5,"yield":4.538},"2008":{"debt":105.8,"yield":4.469},"2009":{"debt":116.1,"yield":4.007},"2010":{"debt":118.8,"yield":4.603},"2011":{"debt":119.1,"yield":6.812},"2012":{"debt":125.9,"yield":4.542},"2013":{"debt":131.9,"yield":4.114},"2014":{"debt":134.8,"yield":1.99},"2015":{"debt":134.8,"yield":1.579},"2016":{"debt":134.2,"yield":1.886},"2017":{"debt":133.7,"yield":1.795},"2018":{"debt":134.2,"yield":2.975},"2019":{"debt":133.9,"yield":1.37},"2020":{"debt":154.4,"yield":0.578},"2021":{"debt":145.8,"yield":1.047},"2022":{"debt":138.4,"yield":4.257},"2023":{"debt":133.9,"yield":3.821},"2024":{"debt":134.7,"yield":3.321},"2025":{"debt":137.1,"yield":3.552},"2026":{"debt":138.4,"yield":3.986}}},"LVA":{"name":"Latvia","series":{"2001":{"debt":17.8,"yield":6.93},"2002":{"debt":15.4,"yield":4.53},"2003":{"debt":15.4,"yield":5.07},"2004":{"debt":15.3,"yield":4.58},"2005":{"debt":12.5,"yield":3.59},"2006":{"debt":10.7,"yield":4.9},"2007":{"debt":9,"yield":5.1},"2008":{"debt":19.3,"yield":9.03},"2009":{"debt":37.6,"yield":13.75},"2010":{"debt":48.2,"yield":7.55},"2011":{"debt":46.8,"yield":5.93},"2012":{"debt":44.4,"yield":3.24},"2013":{"debt":41.8,"yield":3.62},"2014":{"debt":43.1,"yield":1.63},"2015":{"debt":38.3,"yield":1.08},"2016":{"debt":41.7,"yield":0.9},"2017":{"debt":40.3,"yield":0.59},"2018":{"debt":38.3,"yield":1.05},"2019":{"debt":37.9,"yield":0.16},"2020":{"debt":44,"yield":-0.29},"2021":{"debt":45.9,"yield":0.3},"2022":{"debt":44.4,"yield":3.5},"2023":{"debt":44.4,"yield":3.49},"2024":{"debt":46.2,"yield":3.04},"2025":{"debt":46.9,"yield":3.66},"2026":{"debt":47.4,"yield":3.82}}},"LTU":{"name":"Lithuania","series":{"2001":{"debt":22.9,"yield":6.337},"2002":{"debt":22.1,"yield":5.871},"2003":{"debt":20.4,"yield":4.806},"2004":{"debt":18.6,"yield":3.953},"2005":{"debt":17.6,"yield":3.785},"2006":{"debt":17.3,"yield":4.275},"2007":{"debt":15.9,"yield":4.938},"2008":{"debt":14.6,"yield":9.0},"2009":{"debt":27.9,"yield":9.103},"2010":{"debt":36.7,"yield":5.15},"2011":{"debt":37.5,"yield":5.75},"2012":{"debt":39.9,"yield":4.0},"2013":{"debt":38.9,"yield":3.69},"2014":{"debt":40.7,"yield":1.9},"2015":{"debt":42.4,"yield":1.49},"2016":{"debt":39.8,"yield":0.31},"2017":{"debt":39.1,"yield":0.31},"2018":{"debt":33.3,"yield":0.31},"2019":{"debt":35.6,"yield":0.31},"2020":{"debt":45.9,"yield":0.16},"2021":{"debt":43.3,"yield":0.16},"2022":{"debt":38.3,"yield":2.88},"2023":{"debt":37.1,"yield":2.88},"2024":{"debt":38,"yield":2.88},"2025":{"debt":39.8,"yield":2.88},"2026":{"debt":45.1,"yield":2.88}}},"LUX":{"name":"Luxembourg","series":{"1995":{"debt":10.3,"yield":6.686},"1996":{"debt":10.2,"yield":5.808},"1997":{"debt":10.1,"yield":5.432},"1998":{"debt":9.5,"yield":4.095},"1999":{"debt":8.4,"yield":5.26},"2000":{"debt":7.5,"yield":5.206},"2001":{"debt":7.6,"yield":4.511},"2002":{"debt":7.4,"yield":3.967},"2003":{"debt":7.4,"yield":3.29},"2004":{"debt":7.8,"yield":2.541},"2005":{"debt":8,"yield":2.738},"2006":{"debt":8.2,"yield":3.766},"2007":{"debt":8.1,"yield":4.679},"2008":{"debt":14.6,"yield":4.174},"2009":{"debt":15.3,"yield":3.802},"2010":{"debt":19.1,"yield":3.319},"2011":{"debt":18.5,"yield":2.266},"2012":{"debt":20.8,"yield":1.428},"2013":{"debt":22.4,"yield":2.096},"2014":{"debt":21.9,"yield":0.65},"2015":{"debt":21.1,"yield":0.271},"2016":{"debt":19.6,"yield":0.385},"2017":{"debt":21.8,"yield":0.485},"2018":{"debt":20.9,"yield":0.424},"2019":{"debt":22.3,"yield":-0.226},"2020":{"debt":24.5,"yield":-0.549},"2021":{"debt":24.2,"yield":-0.218},"2022":{"debt":24.9,"yield":2.676},"2023":{"debt":24.7,"yield":2.533},"2024":{"debt":26.3,"yield":2.643},"2025":{"debt":27,"yield":3.102},"2026":{"debt":28,"yield":3.401}}},"NLD":{"name":"Netherlands","series":{"1980":{"debt":43.6,"yield":10.48},"1981":{"debt":46.9,"yield":11.28},"1982":{"debt":52.4,"yield":8.4},"1983":{"debt":58.4,"yield":8.58},"1984":{"debt":61.9,"yield":7.72},"1985":{"debt":67.1,"yield":6.96},"1986":{"debt":68.9,"yield":6.265},"1987":{"debt":71.3,"yield":6.419},"1988":{"debt":73.7,"yield":6.504},"1989":{"debt":73.7,"yield":7.753},"1990":{"debt":75,"yield":9.071},"1991":{"debt":74.8,"yield":8.696},"1992":{"debt":75.6,"yield":7.383},"1993":{"debt":76.7,"yield":5.674},"1994":{"debt":73.5,"yield":7.595},"1995":{"debt":73,"yield":6.092},"1996":{"debt":71.2,"yield":5.715},"1997":{"debt":65.7,"yield":5.284},"1998":{"debt":62.7,"yield":3.959},"1999":{"debt":58.6,"yield":5.284},"2000":{"debt":52.2,"yield":5.029},"2001":{"debt":49.4,"yield":4.89},"2002":{"debt":48.7,"yield":4.363},"2003":{"debt":49.8,"yield":4.326},"2004":{"debt":50.1,"yield":3.632},"2005":{"debt":49.6,"yield":3.353},"2006":{"debt":45,"yield":3.819},"2007":{"debt":42.7,"yield":4.338},"2008":{"debt":54.4,"yield":3.647},"2009":{"debt":56.3,"yield":3.438},"2010":{"debt":58.9,"yield":3.155},"2011":{"debt":61.2,"yield":2.376},"2012":{"debt":65.7,"yield":1.562},"2013":{"debt":67.2,"yield":2.156},"2014":{"debt":67.2,"yield":0.777},"2015":{"debt":63.8,"yield":0.754},"2016":{"debt":60.9,"yield":0.436},"2017":{"debt":56,"yield":0.452},"2018":{"debt":51.6,"yield":0.401},"2019":{"debt":47.7,"yield":-0.135},"2020":{"debt":53.4,"yield":-0.553},"2021":{"debt":50.5,"yield":-0.318},"2022":{"debt":48.4,"yield":2.429},"2023":{"debt":45.8,"yield":2.422},"2024":{"debt":43.7,"yield":2.447},"2025":{"debt":43.3,"yield":2.968},"2026":{"debt":44.1,"yield":3.285}}},"PRT":{"name":"Portugal","series":{"1993":{"debt":57.2,"yield":9.19},"1994":{"debt":60.4,"yield":11.6},"1995":{"debt":62.2,"yield":10.03},"1996":{"debt":63.3,"yield":6.95},"1997":{"debt":58.7,"yield":5.67},"1998":{"debt":55.6,"yield":4.12},"1999":{"debt":55.4,"yield":5.46},"2000":{"debt":54.2,"yield":5.28},"2001":{"debt":57.4,"yield":5.01},"2002":{"debt":60,"yield":4.45},"2003":{"debt":63.9,"yield":4.4},"2004":{"debt":67.1,"yield":3.64},"2005":{"debt":72.2,"yield":3.46},"2006":{"debt":73.7,"yield":3.96},"2007":{"debt":72.7,"yield":4.47},"2008":{"debt":75.6,"yield":4.01},"2009":{"debt":87.8,"yield":3.91},"2010":{"debt":100.1,"yield":6.53},"2011":{"debt":114,"yield":13.08},"2012":{"debt":128.6,"yield":7.25},"2013":{"debt":130.8,"yield":6.04},"2014":{"debt":132.5,"yield":2.81},"2015":{"debt":131,"yield":2.49},"2016":{"debt":131.2,"yield":3.74},"2017":{"debt":126,"yield":1.83},"2018":{"debt":121.1,"yield":1.71},"2019":{"debt":116.1,"yield":0.41},"2020":{"debt":134.1,"yield":0.03},"2021":{"debt":123.9,"yield":0.36},"2022":{"debt":111.2,"yield":3.1},"2023":{"debt":96.9,"yield":2.85},"2024":{"debt":93.5,"yield":2.68},"2025":{"debt":89.9,"yield":3.14},"2026":{"debt":85.6,"yield":3.44}}},"SVK":{"name":"Slovakia","series":{"2000":{"debt":50.6,"yield":8.34},"2001":{"debt":51.4,"yield":7.748},"2002":{"debt":45.6,"yield":5.122},"2003":{"debt":43.6,"yield":5.42},"2004":{"debt":42,"yield":4.58},"2005":{"debt":35,"yield":3.619},"2006":{"debt":31.5,"yield":4.149},"2007":{"debt":30.4,"yield":4.608},"2008":{"debt":28.6,"yield":4.717},"2009":{"debt":36.4,"yield":4.124},"2010":{"debt":40.7,"yield":4.063},"2011":{"debt":43.3,"yield":5.21},"2012":{"debt":51.7,"yield":3.924},"2013":{"debt":54.6,"yield":2.689},"2014":{"debt":53.4,"yield":1.23},"2015":{"debt":51.6,"yield":0.72},"2016":{"debt":52.1,"yield":1.009},"2017":{"debt":51.4,"yield":0.666},"2018":{"debt":49.3,"yield":0.938},"2019":{"debt":48,"yield":0.125},"2020":{"debt":58.4,"yield":-0.525},"2021":{"debt":60.2,"yield":-0.019},"2022":{"debt":57.8,"yield":3.196},"2023":{"debt":55.8,"yield":3.314},"2024":{"debt":59.7,"yield":3.216},"2025":{"debt":61.6,"yield":3.466},"2026":{"debt":63,"yield":3.85}}},"SVN":{"name":"Slovenia","series":{"2002":{"debt":27.7,"yield":6.65},"2003":{"debt":27,"yield":5.27},"2004":{"debt":27.1,"yield":4.07},"2005":{"debt":26.6,"yield":3.69},"2006":{"debt":26.2,"yield":3.9},"2007":{"debt":22.9,"yield":4.551},"2008":{"debt":21.9,"yield":4.56},"2009":{"debt":34.9,"yield":3.91},"2010":{"debt":38.6,"yield":4.11},"2011":{"debt":46.8,"yield":6.9},"2012":{"debt":54.1,"yield":5.33},"2013":{"debt":70.8,"yield":5.27},"2014":{"debt":81.1,"yield":2.11},"2015":{"debt":83.4,"yield":1.61},"2016":{"debt":79.4,"yield":0.96},"2017":{"debt":74.9,"yield":0.69},"2018":{"debt":71,"yield":0.96},"2019":{"debt":66,"yield":0.02},"2020":{"debt":80.2,"yield":-0.23},"2021":{"debt":74.8,"yield":0.17},"2022":{"debt":72.8,"yield":3.52},"2023":{"debt":68.3,"yield":3.26},"2024":{"debt":66.6,"yield":2.89},"2025":{"debt":65.9,"yield":3.25},"2026":{"debt":65.2,"yield":3.54}}},"ESP":{"name":"Spain","series":{"1980":{"debt":16.1,"yield":16.23},"1981":{"debt":19.4,"yield":15.76},"1982":{"debt":24.4,"yield":15.55},"1983":{"debt":29.5,"yield":17.23},"1984":{"debt":36,"yield":13.92},"1985":{"debt":40.9,"yield":12.32},"1986":{"debt":42.1,"yield":10.36},"1987":{"debt":41.9,"yield":13.44},"1988":{"debt":38.5,"yield":12.82},"1989":{"debt":39.9,"yield":14.49},"1990":{"debt":41.3,"yield":14.54},"1991":{"debt":41.9,"yield":11.319},"1992":{"debt":44.1,"yield":12.533},"1993":{"debt":54.6,"yield":8.281},"1994":{"debt":57,"yield":11.38},"1995":{"debt":61.6,"yield":9.95},"1996":{"debt":65.4,"yield":6.997},"1997":{"debt":64.3,"yield":5.644},"1998":{"debt":62.4,"yield":4.076},"1999":{"debt":60.9,"yield":5.367},"2000":{"debt":57.8,"yield":5.203},"2001":{"debt":54.1,"yield":4.968},"2002":{"debt":51.2,"yield":4.426},"2003":{"debt":47.7,"yield":4.339},"2004":{"debt":45.3,"yield":3.643},"2005":{"debt":42.4,"yield":3.369},"2006":{"debt":39,"yield":3.816},"2007":{"debt":35.7,"yield":4.348},"2008":{"debt":39.6,"yield":3.858},"2009":{"debt":53.1,"yield":3.804},"2010":{"debt":60.3,"yield":5.374},"2011":{"debt":69.5,"yield":5.505},"2012":{"debt":89.6,"yield":5.34},"2013":{"debt":100,"yield":4.139},"2014":{"debt":104.4,"yield":1.785},"2015":{"debt":102.4,"yield":1.686},"2016":{"debt":102,"yield":1.437},"2017":{"debt":101.1,"yield":1.442},"2018":{"debt":99.7,"yield":1.426},"2019":{"debt":97.6,"yield":0.436},"2020":{"debt":119.2,"yield":0.042},"2021":{"debt":115.6,"yield":0.413},"2022":{"debt":109.2,"yield":3.111},"2023":{"debt":105.1,"yield":3.141},"2024":{"debt":101.6,"yield":2.891},"2025":{"debt":100.4,"yield":3.272},"2026":{"debt":98.2,"yield":3.633}}}}</script>
+<script>
+(function(){
+  "use strict";
+  var DATA = JSON.parse(document.getElementById('eurodata').textContent);
+  var codes = Object.keys(DATA);
+
+  // ---- geometry (fixed domain across all years so motion is comparable) ----
+  var VB_W=920, VB_H=580, PAD_L=60, PAD_R=30, PAD_T=20, PAD_B=50;
+  var plotW = VB_W-PAD_L-PAD_R, plotH = VB_H-PAD_T-PAD_B;
+  var X_MIN=0, X_MAX=220, Y_MIN=-3, Y_MAX=22;
+  function xs(x){ return PAD_L + (x-X_MIN)/(X_MAX-X_MIN)*plotW; }
+  function ys(y){ return PAD_T + (Y_MAX-y)/(Y_MAX-Y_MIN)*plotH; }
+
+  var svg = document.getElementById('chart');
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs){
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  // static layer: gridlines, axes, axis labels
+  var staticLayer = el('g', {});
+  for (var xv=0; xv<=X_MAX; xv+=50){
+    staticLayer.appendChild(el('line', {x1:xs(xv),y1:PAD_T,x2:xs(xv),y2:PAD_T+plotH,stroke:'var(--grid)','stroke-width':1}));
+    var t=el('text',{x:xs(xv),y:PAD_T+plotH+22,class:'tick','text-anchor':'middle'}); t.textContent=xv+'%'; staticLayer.appendChild(t);
+  }
+  for (var yv=Y_MIN<0?0:Y_MIN; yv<=Y_MAX; yv+=5){
+    staticLayer.appendChild(el('line', {x1:PAD_L,y1:ys(yv),x2:PAD_L+plotW,y2:ys(yv),stroke:'var(--grid)','stroke-width':1}));
+    var t2=el('text',{x:PAD_L-10,y:ys(yv)+4,class:'tick','text-anchor':'end'}); t2.textContent=yv+'%'; staticLayer.appendChild(t2);
+  }
+  // zero-yield line, slightly heavier
+  staticLayer.appendChild(el('line',{x1:PAD_L,y1:ys(0),x2:PAD_L+plotW,y2:ys(0),stroke:'var(--baseline)','stroke-width':1.2}));
+  staticLayer.appendChild(el('line',{x1:PAD_L,y1:PAD_T+plotH,x2:PAD_L+plotW,y2:PAD_T+plotH,stroke:'var(--baseline)','stroke-width':1.2}));
+  staticLayer.appendChild(el('line',{x1:PAD_L,y1:PAD_T,x2:PAD_L,y2:PAD_T+plotH,stroke:'var(--baseline)','stroke-width':1.2}));
+  var xlab = el('text',{x:PAD_L+plotW/2,y:VB_H-8,class:'axis-label','text-anchor':'middle'}); xlab.textContent='General government gross debt, % of GDP';
+  staticLayer.appendChild(xlab);
+  var ylab = el('text',{x:16,y:PAD_T+plotH/2,class:'axis-label','text-anchor':'middle',transform:'rotate(-90 16 '+(PAD_T+plotH/2)+')'}); ylab.textContent='Long-term bond yield, %';
+  staticLayer.appendChild(ylab);
+  svg.appendChild(staticLayer);
+
+  var trendLine = el('line', {class:'trend'});
+  svg.appendChild(trendLine);
+  var clipId = 'plotclip';
+  var defs = el('defs', {});
+  var clipRect = el('clipPath', {id: clipId});
+  clipRect.appendChild(el('rect', {x:PAD_L, y:PAD_T, width:plotW, height:plotH}));
+  defs.appendChild(clipRect);
+  svg.appendChild(defs);
+  var trendQuad = el('path', {class:'trend-quad', 'clip-path':'url(#'+clipId+')'});
+  svg.appendChild(trendQuad);
+
+  var dotLayer = el('g', {});
+  svg.appendChild(dotLayer);
+
+  var rings = {}, dots = {};
+  var PINNED = {DEU:[9,-10,'start'], GRC:[9,-10,'start']};
+  var labels = {};
+  codes.forEach(function(c){
+    var ring = el('circle', {r:8, class:'dot-ring'});
+    var dot = el('circle', {r:6, class:'dot', 'data-code':c});
+    dotLayer.appendChild(ring); dotLayer.appendChild(dot);
+    rings[c]=ring; dots[c]=dot;
+    dot.addEventListener('mouseenter', function(e){ showTip(e, c); });
+    dot.addEventListener('mousemove', moveTip);
+    dot.addEventListener('mouseleave', hideTip);
+    if (PINNED[c]){
+      var lab = el('text', {class:'pinned-label'});
+      lab.textContent = DATA[c].name;
+      dotLayer.appendChild(lab);
+      labels[c]=lab;
+    }
+  });
+
+  var tooltip = document.getElementById('tooltip');
+  function showTip(e,c){ tooltip.style.opacity=1; moveTip(e); }
+  function moveTip(e){
+    var pt = currentPoints[e.target.getAttribute('data-code')];
+    if(!pt) return;
+    tooltip.textContent = pt.name+' — debt '+pt.debt.toFixed(1)+'% · yield '+pt.yield.toFixed(2)+'%';
+    tooltip.style.left = (e.clientX+14)+'px';
+    tooltip.style.top = (e.clientY+14)+'px';
+  }
+  function hideTip(){ tooltip.style.opacity=0; }
+
+  var currentPoints = {};
+
+  function stats(points){
+    var n=points.length;
+    if(n<2) return null;
+    var mx=0,my=0; points.forEach(function(p){mx+=p.debt;my+=p.yield;}); mx/=n; my/=n;
+    var cov=0,vx=0,vy=0;
+    points.forEach(function(p){ var dx=p.debt-mx, dy=p.yield-my; cov+=dx*dy; vx+=dx*dx; vy+=dy*dy; });
+    var r = cov/Math.sqrt(vx*vy);
+    var b = cov/vx, a = my-b*mx;
+    return {r:r, r2:r*r, a:a, b:b, n:n};
+  }
+
+  function solve3x3(M, v){
+    // Cramer's rule, M is 3x3 (array of rows), v is length-3
+    function det3(m){
+      return m[0][0]*(m[1][1]*m[2][2]-m[1][2]*m[2][1])
+           - m[0][1]*(m[1][0]*m[2][2]-m[1][2]*m[2][0])
+           + m[0][2]*(m[1][0]*m[2][1]-m[1][1]*m[2][0]);
+    }
+    var D = det3(M);
+    if (Math.abs(D) < 1e-9) return null;
+    var out = [];
+    for (var col=0; col<3; col++){
+      var Mc = M.map(function(row){ return row.slice(); });
+      for (var row=0; row<3; row++) Mc[row][col] = v[row];
+      out.push(det3(Mc)/D);
+    }
+    return out; // [a, b, c]
+  }
+
+  function quadFit(points){
+    var n = points.length;
+    if (n < 5) return null; // need enough points for a stable quadratic
+    var S0=n,S1=0,S2=0,S3=0,S4=0,T0=0,T1=0,T2=0;
+    points.forEach(function(p){
+      var x=p.debt, y=p.yield, x2=x*x;
+      S1+=x; S2+=x2; S3+=x2*x; S4+=x2*x2;
+      T0+=y; T1+=x*y; T2+=x2*y;
+    });
+    var sol = solve3x3([[S0,S1,S2],[S1,S2,S3],[S2,S3,S4]], [T0,T1,T2]);
+    if (!sol) return null;
+    var a=sol[0], b=sol[1], c=sol[2];
+    var ybar = T0/n, ssTot=0, ssRes=0;
+    points.forEach(function(p){
+      var fit = a + b*p.debt + c*p.debt*p.debt;
+      ssRes += (p.yield-fit)*(p.yield-fit);
+      ssTot += (p.yield-ybar)*(p.yield-ybar);
+    });
+    var r2 = ssTot>0 ? 1 - ssRes/ssTot : 0;
+    return {a:a, b:b, c:c, r2:r2, n:n};
+  }
+
+  function quadPathD(q){
+    // no y-clamping here: the path is clipped to the plot rect instead, so a
+    // curve that exits the frame does so at its true slope rather than
+    // flattening along the top/bottom edge.
+    var steps = 60, d = '';
+    for (var i=0; i<=steps; i++){
+      var x = X_MIN + (X_MAX-X_MIN)*i/steps;
+      var y = q.a + q.b*x + q.c*x*x;
+      d += (i===0?'M':'L') + xs(x).toFixed(1) + ',' + ys(y).toFixed(1) + ' ';
+    }
+    return d;
+  }
+
+  function render(year){
+    document.getElementById('yearLabel').textContent = year;
+    document.getElementById('yearSlider').value = year;
+    var pts = [];
+    currentPoints = {};
+    codes.forEach(function(c){
+      var rec = DATA[c].series[String(year)];
+      if (rec){
+        var p = {code:c, name:DATA[c].name, debt:rec.debt, yield:rec.yield};
+        pts.push(p);
+        currentPoints[c]=p;
+        rings[c].setAttribute('cx', xs(p.debt)); rings[c].setAttribute('cy', ys(p.yield)); rings[c].setAttribute('opacity',1);
+        dots[c].setAttribute('cx', xs(p.debt)); dots[c].setAttribute('cy', ys(p.yield)); dots[c].setAttribute('opacity',1);
+        if (labels[c]){
+          var off = PINNED[c];
+          labels[c].setAttribute('x', xs(p.debt)+off[0]);
+          labels[c].setAttribute('y', ys(p.yield)+off[1]);
+          labels[c].setAttribute('text-anchor', off[2]);
+          labels[c].setAttribute('opacity',1);
+        }
+      } else {
+        rings[c].setAttribute('opacity',0); dots[c].setAttribute('opacity',0);
+        if (labels[c]) labels[c].setAttribute('opacity',0);
+      }
+    });
+    var st = stats(pts);
+    var qf = quadFit(pts);
+    if (st){
+      trendLine.setAttribute('x1', xs(X_MIN)); trendLine.setAttribute('y1', ys(st.a+st.b*X_MIN));
+      trendLine.setAttribute('x2', xs(X_MAX)); trendLine.setAttribute('y2', ys(st.a+st.b*X_MAX));
+      trendLine.setAttribute('opacity', 1);
+      var label = 'n = <b>'+st.n+'</b> &nbsp; linear r² = <b>'+st.r2.toFixed(2)+'</b>';
+      if (qf){
+        trendQuad.setAttribute('d', quadPathD(qf));
+        trendQuad.setAttribute('opacity', 1);
+        label += ' &nbsp; quadratic R² = <b>'+qf.r2.toFixed(2)+'</b>';
+      } else {
+        trendQuad.setAttribute('opacity', 0);
+      }
+      document.getElementById('statLabel').innerHTML = label;
+    } else {
+      trendLine.setAttribute('opacity', 0);
+      trendQuad.setAttribute('opacity', 0);
+      document.getElementById('statLabel').textContent = 'n = '+pts.length+' — not enough countries yet';
+    }
+  }
+
+  var slider = document.getElementById('yearSlider');
+  slider.addEventListener('input', function(){ render(parseInt(slider.value,10)); });
+
+  var playing = false, timer = null;
+  var playBtn = document.getElementById('playBtn');
+  function stepPlay(){
+    var y = parseInt(slider.value,10)+1;
+    if (y>parseInt(slider.max,10)) y = parseInt(slider.min,10);
+    render(y);
+  }
+  playBtn.addEventListener('click', function(){
+    playing = !playing;
+    playBtn.innerHTML = playing ? '&#10073;&#10073;' : '&#9654;';
+    playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+    if (playing){ timer = setInterval(stepPlay, 550); }
+    else { clearInterval(timer); }
+  });
+
+  render(1995);
+})();
+</script>
+</body>
+</html>
