@@ -72,6 +72,10 @@ svg{display:block;width:100%;height:auto;}
 .dot:hover{fill:var(--accent-2);cursor:pointer;}
 .trend{stroke:var(--ink-muted);stroke-width:1.5;stroke-dasharray:5,5;transition:all .5s cubic-bezier(.3,.6,.3,1);}
 .trend-quad{stroke:var(--accent-2);stroke-width:2;fill:none;transition:d .5s cubic-bezier(.3,.6,.3,1),opacity .3s;}
+.latest-dot{fill:var(--surface);stroke:var(--accent-2);stroke-width:2.5;transition:opacity .3s;}
+.latest-dot:hover{cursor:pointer;fill:var(--accent-soft);}
+.latest-link{stroke:var(--accent-2);stroke-width:1.5;stroke-dasharray:3,3;transition:opacity .3s;}
+.latest-label{font-family:var(--font-mono);font-size:11.5px;fill:var(--ink-2);transition:opacity .3s;}
 .pinned-label{font-family:var(--font-mono);font-size:11.5px;fill:var(--ink-2);transition:all .5s cubic-bezier(.3,.6,.3,1);}
 .axis-label{font-family:var(--font-display);font-size:12.5px;fill:var(--ink-2);}
 .tick{font-family:var(--font-mono);font-size:11px;fill:var(--ink-muted);}
@@ -85,6 +89,7 @@ footer a{color:var(--accent);}
 :root[data-theme="dark"] #tooltip, @media (prefers-color-scheme:dark){ #tooltip{} }
 .legend{display:flex;gap:18px;row-gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);margin-top:4px;}
 .legend span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
+.legend svg{display:inline-block;width:16px;height:10px;flex:none;}
 .swatch{width:10px;height:10px;border-radius:50%;background:var(--accent);}
 </style>
 
@@ -116,6 +121,7 @@ footer a{color:var(--accent);}
     Debt: IMF World Economic Outlook database, General government gross debt (% of GDP) &#8212; 2025&#8211;2026 are IMF estimates, not final actuals.
     Yield: OECD Main Economic Indicators, Long-term interest rates (year-end or latest available month).
     Cyprus and Malta excluded (not OECD members, no comparable yield series).
+    On the 2026 frame, the hollow point is France's most recent reading (yield 4.48%, OECD, September 2026; debt 117.6% of GDP, Eurostat, Q1 2026). It is not included in the fits, which use each country's August 2026 yield (July for Portugal).
   </footer>
 </div>
 
@@ -196,12 +202,30 @@ footer a{color:var(--accent);}
     }
   });
 
+  // Most recent single-country readings, shown only on the 2026 frame and kept out of the fits
+  // so every fitted point uses the same month.
+  var LATEST = {
+    FRA: {debt:117.6, yield:4.477, label:'France, Sep 2026', tip:'France, latest — debt 117.6% (Eurostat, Q1 2026) · yield 4.48% (OECD, Sep 2026)'}
+  };
+  var latestEls = {};
+  Object.keys(LATEST).forEach(function(c){
+    var link = el('line', {class:'latest-link', opacity:0});
+    var dot = el('circle', {r:6, class:'latest-dot', opacity:0, 'data-code':c+'_LATEST'});
+    var lab = el('text', {class:'latest-label', opacity:0});
+    lab.textContent = LATEST[c].label;
+    dotLayer.appendChild(link); dotLayer.appendChild(dot); dotLayer.appendChild(lab);
+    dot.addEventListener('mouseenter', function(e){ showTip(e); });
+    dot.addEventListener('mousemove', moveTip);
+    dot.addEventListener('mouseleave', hideTip);
+    latestEls[c] = {link:link, dot:dot, lab:lab};
+  });
+
   var tooltip = document.getElementById('tooltip');
   function showTip(e,c){ tooltip.style.opacity=1; moveTip(e); }
   function moveTip(e){
     var pt = currentPoints[e.target.getAttribute('data-code')];
     if(!pt) return;
-    tooltip.textContent = pt.name+' — debt '+pt.debt.toFixed(1)+'% · yield '+pt.yield.toFixed(2)+'%';
+    tooltip.textContent = pt.tip || (pt.name+' — debt '+pt.debt.toFixed(1)+'% · yield '+pt.yield.toFixed(2)+'%');
     tooltip.style.left = (e.clientX+14)+'px';
     tooltip.style.top = (e.clientY+14)+'px';
   }
@@ -297,6 +321,19 @@ footer a{color:var(--accent);}
         rings[c].setAttribute('opacity',0); dots[c].setAttribute('opacity',0);
         if (labels[c]) labels[c].setAttribute('opacity',0);
       }
+    });
+    Object.keys(LATEST).forEach(function(c){
+      var L = LATEST[c], E = latestEls[c], base = currentPoints[c];
+      var show = (year === 2026 && base) ? 1 : 0;
+      if (show){
+        E.link.setAttribute('x1', xs(base.debt)); E.link.setAttribute('y1', ys(base.yield));
+        E.link.setAttribute('x2', xs(L.debt)); E.link.setAttribute('y2', ys(L.yield));
+        E.dot.setAttribute('cx', xs(L.debt)); E.dot.setAttribute('cy', ys(L.yield));
+        E.lab.setAttribute('x', xs(L.debt)+10); E.lab.setAttribute('y', ys(L.yield)-10);
+        currentPoints[c+'_LATEST'] = {tip:L.tip};
+      }
+      E.link.setAttribute('opacity', show); E.dot.setAttribute('opacity', show); E.lab.setAttribute('opacity', show);
+      E.dot.style.pointerEvents = show ? 'auto' : 'none';
     });
     var st = stats(pts);
     var qf = quadFit(pts);
